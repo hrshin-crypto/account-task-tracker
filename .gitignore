@@ -1,0 +1,22 @@
+# Secrets — never commit
+.env
+credentials.json
+gmail_credentials.json
+
+# Database
+tracker.db
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+env/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Claude Code internals (skills have their own git repos)
+.claude/skills/
