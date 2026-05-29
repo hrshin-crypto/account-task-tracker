@@ -22,10 +22,7 @@ load_dotenv()
 
 app = Flask(__name__)
 
-# runs on both `python app.py` and gunicorn worker startup
-init_db()
-migrate_db()
-threading.Thread(target=_scheduler, daemon=True).start()
+# initialized after _scheduler is defined (see bottom of file)
 
 USER_EMAIL = os.environ.get("USER_EMAIL", "hr.shin@teamsparta.co")
 USER_NAME  = os.environ.get("USER_NAME",  "신해람")
@@ -125,6 +122,25 @@ def api_create_task():
 @app.route("/api/tasks/<int:tid>", methods=["DELETE"])
 def api_delete_task(tid):
     delete_parent_task(tid)
+    return jsonify({"ok": True})
+
+
+@app.route("/api/tasks/<int:tid>", methods=["PUT"])
+def api_update_task(tid):
+    data = request.json or {}
+    from db import get_conn
+    conn = get_conn()
+    if "due_date" in data:
+        conn.execute("UPDATE parent_tasks SET due_date=?, updated_at=datetime('now') WHERE id=?",
+                     (data["due_date"] or None, tid))
+    if "title" in data and data["title"]:
+        conn.execute("UPDATE parent_tasks SET title=?, updated_at=datetime('now') WHERE id=?",
+                     (data["title"], tid))
+    if "description" in data:
+        conn.execute("UPDATE parent_tasks SET description=?, updated_at=datetime('now') WHERE id=?",
+                     (data["description"], tid))
+    conn.commit()
+    conn.close()
     return jsonify({"ok": True})
 
 
@@ -259,6 +275,10 @@ def _run_alert_job():
     except Exception as e:
         print(f"[알림 오류] {e}")
 
+
+init_db()
+migrate_db()
+threading.Thread(target=_scheduler, daemon=True).start()
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))

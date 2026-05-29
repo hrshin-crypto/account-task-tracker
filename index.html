@@ -408,7 +408,10 @@ tbody td.row-header {
           <div id="im-raw" style="font-size:12px;color:#475569;background:#f8fafc;border-radius:6px;padding:8px;max-height:64px;overflow-y:auto;border:1px solid #e2e8f0;line-height:1.5"></div>
         </div>
         <div class="fg" style="margin-bottom:10px"><label>태스크 제목 *</label><input id="im-title" placeholder="예: A사 협약서 발송"></div>
-        <div class="fg" style="margin-bottom:0"><label>마감일 (ETA)</label><input id="im-eta" type="date"></div>
+        <div class="fg" style="margin-bottom:0">
+          <label>마감일 (ETA) <span style="color:#ef4444;font-size:10px">← 반드시 설정</span></label>
+          <input id="im-eta" type="date" style="border:1.5px solid #fbbf24;background:#fffbeb">
+        </div>
       </div>
       <div style="width:340px;flex-shrink:0;display:flex;flex-direction:column">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
@@ -1141,9 +1144,18 @@ async function openTaskDetail(tid) {
 
   document.getElementById('detail-title').textContent = t.title;
   document.getElementById('detail-meta').innerHTML = `
-    <span class="eta-badge ${etaClass(t.due_date)}">${etaLabel(t.due_date)}</span>
-    ${t.due_date ? `<span style="font-size:11px;color:#94a3b8">${t.due_date}</span>` : ''}
-    <span style="font-size:11px;color:#94a3b8">${t.description || ''}</span>
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:4px">
+      <span class="eta-badge ${etaClass(t.due_date)}">${etaLabel(t.due_date)}</span>
+      <label style="display:flex;align-items:center;gap:5px;font-size:12px;color:#64748b">
+        📅 마감일
+        <input type="date" id="task-eta-input" value="${t.due_date||''}"
+          style="border:1.5px solid #e2e8f0;border-radius:6px;padding:3px 8px;font-size:12px;outline:none;cursor:pointer"
+          onchange="saveTaskEta(${t.id}, this.value)"
+          onfocus="this.style.borderColor='#1e40af'" onblur="this.style.borderColor='#e2e8f0'">
+      </label>
+      ${t.due_date?`<button onclick="saveTaskEta(${t.id},'')" style="border:none;background:none;cursor:pointer;font-size:11px;color:#94a3b8" title="마감일 제거">✕</button>`:''}
+    </div>
+    ${t.description ? `<div style="font-size:11px;color:#94a3b8;margin-top:4px">${t.description}</div>` : ''}
   `;
 
   const gradeOrder = g => {
@@ -1233,6 +1245,21 @@ async function openTaskDetail(tid) {
     </div>`;
 
   openDetail();
+}
+
+async function saveTaskEta(tid, dateVal) {
+  await api(`/api/tasks/${tid}`, 'PUT', { due_date: dateVal || null });
+  // update local cache
+  const t = allTasks.find(x => x.id === tid);
+  if (t) t.due_date = dateVal || null;
+  // refresh eta badge in header
+  const badge = document.querySelector('#detail-meta .eta-badge');
+  if (badge) {
+    badge.className = `eta-badge ${etaClass(dateVal)}`;
+    badge.textContent = etaLabel(dateVal);
+  }
+  toast(dateVal ? `마감일 설정: ${dateVal}` : '마감일 제거됨');
+  renderKanban();
 }
 
 async function cycleDetailStatus(accountId, taskId, currentStatus, btn) {
