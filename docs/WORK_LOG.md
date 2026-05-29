@@ -92,11 +92,12 @@ alert_log      -- Slack 알림 발송 이력
 
 #### 슬라이드 디테일 패널 (공통)
 - 기업 목록: 🤖 AI 캠퍼스 / ⭐ 고성과 대분류 토글
-- 소분류: 트랙명별 토글
+- 소분류: 트랙명별 토글 (접기/펼치기)
 - 정렬: 네임드 → S → A → B
 - 등급 뱃지: `네임드`(노랑) + `A`(파랑) 이중 뱃지, `S`(보라), `B`(회색)
-- 넘버링 표시
-- 담당자명 표시
+- 넘버링 표시, 담당자명 표시
+- **태스크 카드 디테일**: 연결된 기업만 표시 (전체 127개 아님)
+- **ETA 인라인 수정**: 상단 📅 날짜 입력창 → 변경 즉시 저장, ✕로 마감일 제거
 
 #### ETA 알림 (`alert.py`)
 - D-3 / D-1 / 기한 초과 시 Slack DM 자동 발송
@@ -126,7 +127,7 @@ alert_log      -- Slack 알림 발송 이력
 #### 인박스 UI
 - 후보 카드: 소스 배지(SLACK/GMAIL/NOTION), 원본 내용, 제목
 - **[검토] 버튼** → 모달 (720px, 좌우 2분할)
-  - 좌: 태스크 제목 수정 + ETA 설정
+  - 좌: 태스크 제목 수정 + **ETA 설정** (노란 테두리 강조, 필수 안내)
   - 우: 기업 선택 (2열 그리드, 검색, 전체선택, 등급 뱃지)
 - **[✅ 태스크 추가]** → parent_task + account_tasks 생성 → 칸반/매트릭스 즉시 반영
 - **[무시]** → candidates 상태 dismissed 처리
@@ -143,6 +144,7 @@ alert_log      -- Slack 알림 발송 이력
 | GET | `/api/tasks` | 태스크 목록 (진행률 포함) |
 | POST | `/api/tasks` | 태스크 생성 |
 | DELETE | `/api/tasks/:id` | 태스크 삭제 |
+| PUT | `/api/tasks/:id` | 태스크 수정 (title, due_date, description) |
 | PUT | `/api/tasks/:id/kanban` | 칸반 상태 변경 |
 | GET | `/api/matrix` | 전체 매트릭스 데이터 |
 | POST | `/api/matrix/toggle` | 셀 상태 토글 |
