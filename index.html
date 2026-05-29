@@ -974,13 +974,19 @@ async function dismissCandidate() {
 // ── Grade badge helper ────────────────────────────────────────────────────────
 function gradeBadge(g, size='10px') {
   if (!g) return '';
-  const gs = g.toUpperCase();
-  let cls, label;
-  if (gs === 'S') { cls = 'grade-s'; label = 'S'; }
-  else if (gs === 'A' || gs.includes('(A)') || gs.includes('네임드')) { cls = 'grade-a'; label = 'A'; }
-  else if (gs === 'B') { cls = 'grade-b'; label = 'B'; }
-  else { cls = 'grade-b'; label = gs.substring(0,2); }
-  return `<span class="${cls}" style="font-size:${size}">${label}</span>`;
+  const gs = g.trim();
+  const isNamed = gs.includes('네임드') || gs.toLowerCase().includes('named');
+  const hasA = gs.includes('(A)') || gs.toUpperCase() === 'A' || (isNamed && gs.includes('A'));
+  const hasS = gs.toUpperCase() === 'S';
+  const hasB = gs.toUpperCase() === 'B';
+
+  let badges = '';
+  if (isNamed) badges += `<span class="grade-named" style="font-size:${size};background:#fef9c3;color:#92400e">네임드</span>`;
+  if (hasS)    badges += `<span class="grade-s" style="font-size:${size}">S</span>`;
+  if (hasA || (!isNamed && gs.toUpperCase() === 'A')) badges += `<span class="grade-a" style="font-size:${size}">A</span>`;
+  if (hasB)    badges += `<span class="grade-b" style="font-size:${size}">B</span>`;
+  if (!badges) badges  = `<span class="grade-b" style="font-size:${size}">${gs.substring(0,3)}</span>`;
+  return badges;
 }
 
 // ── Stat card detail ─────────────────────────────────────────────────────────
