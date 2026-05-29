@@ -1,0 +1,1122 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Account Task Tracker</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans KR', sans-serif; background: #f0f4f8; color: #1e293b; min-height: 100vh; }
+
+/* ── Header ── */
+header {
+  background: #0f172a; color: white;
+  padding: 0 24px; height: 56px;
+  display: flex; align-items: center; gap: 20px;
+  position: sticky; top: 0; z-index: 50;
+  box-shadow: 0 2px 8px rgba(0,0,0,.3);
+}
+header h1 { font-size: 16px; font-weight: 700; letter-spacing: -.3px; white-space: nowrap; }
+header h1 span { color: #3b82f6; }
+nav { display: flex; gap: 2px; }
+nav button {
+  padding: 6px 14px; border: none; border-radius: 6px; cursor: pointer;
+  font-size: 13px; font-weight: 500; background: transparent; color: #94a3b8; transition: all .15s;
+}
+nav button.active { background: #1e40af; color: white; }
+nav button:hover:not(.active) { background: rgba(255,255,255,.08); color: white; }
+.header-actions { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+#sync-btn {
+  padding: 6px 14px; border: 1px solid #334155; border-radius: 6px;
+  background: transparent; color: #94a3b8; font-size: 12px; cursor: pointer; transition: all .15s;
+}
+#sync-btn:hover { border-color: #3b82f6; color: #3b82f6; }
+#sync-status { font-size: 11px; color: #64748b; }
+
+/* ── Tabs ── */
+.tab { display: none; padding: 20px 24px; min-height: calc(100vh - 56px); }
+.tab.active { display: block; }
+
+/* ── Section header ── */
+.sh { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.sh h2 { font-size: 15px; font-weight: 700; color: #0f172a; }
+
+/* ── Buttons ── */
+.btn { padding: 7px 14px; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500; transition: all .15s; }
+.btn-primary { background: #1e40af; color: white; }
+.btn-primary:hover { background: #1d4ed8; }
+.btn-ghost { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
+.btn-ghost:hover { background: #e2e8f0; }
+.btn-danger { background: #fee2e2; color: #dc2626; border: none; }
+.btn-danger:hover { background: #fecaca; }
+.btn-sm { padding: 4px 9px; font-size: 11px; }
+.btn-xs { padding: 3px 7px; font-size: 11px; border-radius: 4px; }
+
+/* ── Kanban ── */
+.kanban-board { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; align-items: start; }
+.kanban-col { background: #e8edf2; border-radius: 12px; padding: 12px; min-height: 200px; }
+.kanban-col-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 12px; padding: 0 4px;
+}
+.kanban-col-title { font-size: 13px; font-weight: 700; }
+.kanban-count { background: rgba(0,0,0,.1); color: #475569; padding: 2px 7px; border-radius: 99px; font-size: 11px; font-weight: 600; }
+.col-planned   .kanban-col-title { color: #1e40af; }
+.col-in_progress .kanban-col-title { color: #d97706; }
+.col-done      .kanban-col-title { color: #059669; }
+
+.kanban-card {
+  background: white; border-radius: 10px; padding: 14px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.07); margin-bottom: 10px;
+  border-left: 4px solid #e2e8f0; cursor: default;
+  transition: box-shadow .15s, transform .1s;
+}
+.kanban-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,.1); transform: translateY(-1px); }
+.kanban-card.overdue   { border-left-color: #ef4444; }
+.kanban-card.due-soon  { border-left-color: #f59e0b; }
+.kanban-card.on-track  { border-left-color: #10b981; }
+.kc-title { font-size: 14px; font-weight: 600; margin-bottom: 6px; line-height: 1.3; }
+.kc-meta { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
+.eta-badge {
+  font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 99px;
+}
+.eta-overdue { background: #fee2e2; color: #dc2626; }
+.eta-soon    { background: #fef3c7; color: #92400e; }
+.eta-ok      { background: #dcfce7; color: #166534; }
+.eta-none    { background: #f1f5f9; color: #64748b; }
+.progress-wrap { margin-bottom: 10px; }
+.progress-bar { background: #e2e8f0; border-radius: 99px; height: 5px; margin-bottom: 4px; }
+.progress-fill { border-radius: 99px; height: 5px; transition: width .4s; background: #1e40af; }
+.progress-label { font-size: 11px; color: #64748b; }
+.kc-preview { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 10px; }
+.kc-chip {
+  font-size: 10px; padding: 2px 6px; border-radius: 4px; white-space: nowrap;
+}
+.chip-done        { background: #dcfce7; color: #166534; }
+.chip-in_progress { background: #fef9c3; color: #92400e; }
+.chip-not_started { background: #f1f5f9; color: #64748b; }
+.chip-na          { background: #f8fafc; color: #94a3b8; }
+.kc-actions { display: flex; gap: 6px; justify-content: space-between; align-items: center; }
+.kc-move { display: flex; gap: 4px; }
+
+/* ── Matrix ── */
+.matrix-wrap { overflow: auto; border-radius: 10px; box-shadow: 0 1px 4px rgba(0,0,0,.08); max-height: calc(100vh - 140px); }
+table { border-collapse: collapse; background: white; min-width: 100%; }
+thead th {
+  background: #0f172a; color: white; padding: 10px 14px; font-size: 12px;
+  font-weight: 600; text-align: center; white-space: nowrap;
+  position: sticky; top: 0; z-index: 10;
+}
+thead th.row-header { text-align: left; min-width: 200px; position: sticky; left: 0; z-index: 20; }
+thead th.task-col { min-width: 110px; cursor: pointer; }
+thead th.task-col:hover { background: #1e293b; }
+.col-pct { display: block; font-size: 10px; color: #94a3b8; margin-top: 2px; font-weight: 400; }
+tbody tr:nth-child(even) td { background: #f8fafc; }
+tbody tr:nth-child(odd) td { background: white; }
+tbody td { padding: 7px 10px; text-align: center; border-bottom: 1px solid #f1f5f9; font-size: 13px; }
+tbody td.row-header {
+  text-align: left; font-weight: 500; padding: 7px 14px;
+  position: sticky; left: 0; z-index: 5; white-space: nowrap;
+}
+.track-row td { background: #f1f5f9 !important; font-size: 11px; color: #64748b; font-weight: 700; padding: 4px 14px; letter-spacing: .04em; }
+.status-cell {
+  display: inline-block; border-radius: 6px; padding: 5px 4px; width: 34px;
+  cursor: pointer; font-size: 16px; user-select: none; transition: transform .1s;
+}
+.status-cell:hover { transform: scale(1.25); }
+.s-not_started { background: #f1f5f9; }
+.s-in_progress { background: #fef9c3; }
+.s-done        { background: #dcfce7; }
+.s-na          { background: #f8fafc; opacity: .5; }
+.grade-s { background: #ede9fe; color: #7c3aed; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 700; margin-right: 5px; }
+.grade-a { background: #dbeafe; color: #1d4ed8; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 700; margin-right: 5px; }
+
+/* ── Account table ── */
+.account-table { width: 100%; border-collapse: collapse; background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+.account-table th { background: #f1f5f9; padding: 9px 14px; font-size: 11px; font-weight: 700; text-align: left; color: #64748b; letter-spacing: .04em; text-transform: uppercase; }
+.account-table td { padding: 9px 14px; font-size: 13px; border-bottom: 1px solid #f8fafc; }
+.account-table tr:last-child td { border-bottom: none; }
+.funnel-badge { font-size: 10px; padding: 2px 7px; border-radius: 99px; background: #f0fdf4; color: #166534; font-weight: 500; }
+
+/* ── Modal ── */
+.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(15,23,42,.5); z-index: 100; align-items: center; justify-content: center; backdrop-filter: blur(2px); }
+.modal-overlay.open { display: flex; }
+.modal { background: white; border-radius: 14px; padding: 24px; width: 440px; max-width: 95vw; box-shadow: 0 20px 60px rgba(0,0,0,.2); }
+.modal h3 { font-size: 16px; font-weight: 700; margin-bottom: 18px; }
+.fg { margin-bottom: 14px; }
+.fg label { display: block; font-size: 11px; font-weight: 700; color: #64748b; margin-bottom: 5px; letter-spacing: .04em; text-transform: uppercase; }
+.fg input, .fg select {
+  width: 100%; padding: 8px 12px; border: 1.5px solid #e2e8f0; border-radius: 7px;
+  font-size: 14px; outline: none; transition: border-color .15s; background: white;
+}
+.fg input:focus, .fg select:focus { border-color: #1e40af; }
+.modal-footer { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; }
+
+/* ── Stats bar ── */
+.stats-bar { display: flex; gap: 12px; margin-bottom: 20px; }
+.stat-card { background: white; border-radius: 10px; padding: 14px 18px; flex: 1; box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+.stat-card .label { font-size: 11px; color: #64748b; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
+.stat-card .value { font-size: 24px; font-weight: 800; color: #0f172a; margin-top: 4px; }
+.stat-card .sub { font-size: 11px; color: #94a3b8; margin-top: 2px; }
+
+/* ── Inbox ── */
+.inbox-card {
+  background: white; border-radius: 12px; padding: 18px 20px; margin-bottom: 12px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.07); border-left: 4px solid #e2e8f0;
+  display: flex; gap: 16px; align-items: flex-start;
+}
+.inbox-card.source-slack  { border-left-color: #4a154b; }
+.inbox-card.source-notion { border-left-color: #000; }
+.inbox-card.source-gmail  { border-left-color: #ea4335; }
+.inbox-card.source-manual { border-left-color: #3b82f6; }
+.inbox-src-badge {
+  padding: 3px 9px; border-radius: 99px; font-size: 10px; font-weight: 700;
+  white-space: nowrap; flex-shrink: 0; margin-top: 2px;
+}
+.src-slack  { background: #f3e8f5; color: #4a154b; }
+.src-notion { background: #f1f1f0; color: #37352f; }
+.src-gmail  { background: #fce8e6; color: #c5221f; }
+.src-manual { background: #dbeafe; color: #1e40af; }
+.inbox-body { flex: 1; min-width: 0; }
+.inbox-title { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+.inbox-raw { font-size: 12px; color: #64748b; margin-bottom: 8px; white-space: pre-wrap; word-break: break-all; max-height: 48px; overflow: hidden; text-overflow: ellipsis; }
+.inbox-meta { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.inbox-company-chip { font-size: 10px; padding: 2px 7px; border-radius: 4px; background: #f1f5f9; color: #475569; }
+.inbox-actions { display: flex; gap: 6px; flex-shrink: 0; align-items: flex-start; margin-top: 2px; }
+.im-check { accent-color: #1e40af; width: 13px; height: 13px; cursor: pointer; flex-shrink: 0; margin-top: 1px; }
+.im-check-row {
+  display: flex; align-items: flex-start; gap: 7px; padding: 6px 8px;
+  border-radius: 6px; cursor: pointer; border: 1.5px solid transparent;
+  transition: all .12s;
+}
+.im-check-row:hover { background: #f1f5f9; }
+.im-check-row.selected { background: #eff6ff; border-color: #bfdbfe; }
+.im-check-row label { cursor: pointer; flex: 1; min-width: 0; }
+.im-cname { font-size: 12px; font-weight: 600; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.im-ctrack { font-size: 10px; color: #94a3b8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
+.im-cgrade { font-size: 9px; font-weight: 700; padding: 1px 5px; border-radius: 3px; flex-shrink: 0; margin-top: 1px; }
+.im-grade-s { background: #ede9fe; color: #7c3aed; }
+.im-grade-a { background: #dbeafe; color: #1d4ed8; }
+.im-accounts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; }
+
+/* ── Empty state ── */
+.empty { text-align: center; padding: 60px 24px; color: #94a3b8; }
+.empty .icon { font-size: 40px; margin-bottom: 12px; }
+.empty p { font-size: 13px; margin-top: 6px; }
+
+/* ── Detail panel ── */
+#detail-overlay {
+  display: none; position: fixed; inset: 0; background: rgba(15,23,42,.35);
+  z-index: 200; backdrop-filter: blur(1px);
+}
+#detail-overlay.open { display: block; }
+#detail-panel {
+  position: fixed; top: 0; right: -480px; width: 460px; height: 100vh;
+  background: white; z-index: 201; box-shadow: -8px 0 40px rgba(0,0,0,.15);
+  transition: right .25s cubic-bezier(.4,0,.2,1); display: flex; flex-direction: column;
+  overflow: hidden;
+}
+#detail-panel.open { right: 0; }
+#detail-header {
+  padding: 20px 20px 16px; border-bottom: 1px solid #f1f5f9;
+  display: flex; align-items: flex-start; gap: 12px; flex-shrink: 0;
+}
+#detail-header-info { flex: 1; min-width: 0; }
+#detail-title { font-size: 16px; font-weight: 700; line-height: 1.3; margin-bottom: 6px; }
+#detail-meta { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+#detail-close {
+  width: 30px; height: 30px; border: none; background: #f1f5f9; border-radius: 6px;
+  cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; color: #64748b; transition: background .15s;
+}
+#detail-close:hover { background: #e2e8f0; }
+#detail-body { flex: 1; overflow-y: auto; padding: 16px 20px; }
+.detail-section { margin-bottom: 20px; }
+.detail-section-title {
+  font-size: 11px; font-weight: 700; color: #94a3b8; letter-spacing: .06em;
+  text-transform: uppercase; margin-bottom: 10px;
+}
+.detail-company-row {
+  display: flex; align-items: center; gap: 10px; padding: 7px 8px;
+  border-radius: 7px; transition: background .1s; cursor: default;
+}
+.detail-company-row:hover { background: #f8fafc; }
+.detail-company-name { flex: 1; font-size: 13px; font-weight: 500; }
+.detail-company-track { font-size: 10px; color: #94a3b8; margin-top: 1px; }
+.detail-status-btn {
+  border: none; border-radius: 5px; padding: 3px 8px; font-size: 11px; font-weight: 600;
+  cursor: pointer; transition: transform .1s; white-space: nowrap;
+}
+.detail-status-btn:hover { transform: scale(1.08); }
+.dsb-not_started { background: #f1f5f9; color: #64748b; }
+.dsb-in_progress  { background: #fef9c3; color: #92400e; }
+.dsb-done         { background: #dcfce7; color: #166534; }
+.dsb-na           { background: #f8fafc; color: #94a3b8; }
+.detail-track-header {
+  font-size: 10px; font-weight: 700; color: #94a3b8; letter-spacing: .05em;
+  padding: 10px 8px 4px; text-transform: uppercase;
+}
+.detail-info-row { display: flex; gap: 8px; margin-bottom: 10px; align-items: flex-start; }
+.detail-info-label { font-size: 11px; font-weight: 700; color: #94a3b8; width: 56px; flex-shrink: 0; padding-top: 1px; }
+.detail-info-val { font-size: 13px; color: #1e293b; flex: 1; }
+.detail-task-row {
+  display: flex; align-items: center; gap: 10px; padding: 8px 10px;
+  border-radius: 8px; margin-bottom: 6px; background: #f8fafc;
+}
+.detail-task-title { flex: 1; font-size: 13px; font-weight: 500; }
+.detail-progress-wrap { margin-bottom: 16px; }
+.detail-progress-bar { background: #e2e8f0; border-radius: 99px; height: 6px; margin-bottom: 6px; }
+.detail-progress-fill { border-radius: 99px; height: 6px; background: #1e40af; transition: width .4s; }
+.detail-progress-stats { display: flex; gap: 16px; }
+.detail-stat { text-align: center; }
+.detail-stat .n { font-size: 18px; font-weight: 800; color: #0f172a; }
+.detail-stat .l { font-size: 10px; color: #94a3b8; margin-top: 1px; }
+
+/* ── Toast ── */
+#toast { position: fixed; bottom: 28px; right: 28px; background: #0f172a; color: white; padding: 10px 18px; border-radius: 8px; font-size: 13px; opacity: 0; transition: opacity .25s; pointer-events: none; z-index: 300; max-width: 300px; }
+#toast.show { opacity: 1; }
+
+@media (max-width: 768px) {
+  .kanban-board { grid-template-columns: 1fr; }
+  .stats-bar { flex-wrap: wrap; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Account <span>Task</span> Tracker</h1>
+  <nav>
+    <button class="active" onclick="showTab('kanban', this)">칸반</button>
+    <button onclick="showTab('matrix', this)">매트릭스</button>
+    <button onclick="showTab('accounts', this)">기업 관리</button>
+    <button onclick="showTab('inbox', this)" id="nav-inbox">인박스 <span id="inbox-badge" style="display:none;background:#ef4444;color:white;border-radius:99px;padding:1px 6px;font-size:10px;font-weight:700;margin-left:3px"></span></button>
+  </nav>
+  <div class="header-actions">
+    <span id="sync-status"></span>
+    <button id="sync-btn" onclick="syncSheets()">🔄 시트 싱크</button>
+  </div>
+</header>
+
+<!-- ────────────── 칸반 탭 ────────────── -->
+<div id="tab-kanban" class="tab active">
+  <div class="sh">
+    <h2>내 업무 보드</h2>
+    <button class="btn btn-primary" onclick="openTaskModal()">+ 태스크 추가</button>
+  </div>
+  <div id="stats-bar" class="stats-bar"></div>
+  <div class="kanban-board">
+    <div class="kanban-col col-planned">
+      <div class="kanban-col-header">
+        <span class="kanban-col-title">📋 예정</span>
+        <span class="kanban-count" id="cnt-planned">0</span>
+      </div>
+      <div id="col-planned"></div>
+    </div>
+    <div class="kanban-col col-in_progress">
+      <div class="kanban-col-header">
+        <span class="kanban-col-title">🔧 진행중</span>
+        <span class="kanban-count" id="cnt-in_progress">0</span>
+      </div>
+      <div id="col-in_progress"></div>
+    </div>
+    <div class="kanban-col col-done">
+      <div class="kanban-col-header">
+        <span class="kanban-col-title">✅ 완료</span>
+        <span class="kanban-count" id="cnt-done">0</span>
+      </div>
+      <div id="col-done"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ────────────── 매트릭스 탭 ────────────── -->
+<div id="tab-matrix" class="tab">
+  <div class="sh">
+    <h2>전체 현황 매트릭스</h2>
+    <span id="matrix-summary" style="font-size:12px;color:#64748b"></span>
+  </div>
+  <div class="matrix-wrap">
+    <table>
+      <thead id="matrix-head"></thead>
+      <tbody id="matrix-body"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ────────────── 기업 관리 탭 ────────────── -->
+<div id="tab-accounts" class="tab">
+  <div class="sh">
+    <h2>기업 목록</h2>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-ghost" onclick="syncSheets()">🔄 시트 싱크</button>
+      <button class="btn btn-primary" onclick="openAccountModal()">+ 직접 추가</button>
+    </div>
+  </div>
+  <table class="account-table">
+    <thead>
+      <tr>
+        <th>기업명</th><th>트랙</th><th>등급</th><th>퍼널</th><th>이메일</th><th></th>
+      </tr>
+    </thead>
+    <tbody id="account-body"></tbody>
+  </table>
+</div>
+
+<!-- ────────────── 인박스 탭 ────────────── -->
+<div id="tab-inbox" class="tab">
+  <div class="sh">
+    <h2>할일 인박스</h2>
+    <div style="display:flex;gap:8px;align-items:center">
+      <span id="inbox-scan-status" style="font-size:11px;color:#64748b"></span>
+      <button class="btn btn-ghost" onclick="runScan()">🔍 지금 스캔</button>
+    </div>
+  </div>
+  <div id="inbox-list"></div>
+</div>
+
+<!-- ── 인박스 기업 선택 모달 ── -->
+<div class="modal-overlay" id="inbox-modal">
+  <div class="modal" style="width:720px;max-width:98vw">
+    <h3>할일 확인 추가</h3>
+    <div style="display:flex;gap:16px;margin-bottom:14px">
+      <div style="flex:1;min-width:0">
+        <div class="fg" style="margin-bottom:10px">
+          <label>소스</label>
+          <div id="im-source" style="font-size:12px;color:#64748b;padding:3px 0"></div>
+        </div>
+        <div class="fg" style="margin-bottom:10px">
+          <label>원본 내용</label>
+          <div id="im-raw" style="font-size:12px;color:#475569;background:#f8fafc;border-radius:6px;padding:8px;max-height:64px;overflow-y:auto;border:1px solid #e2e8f0;line-height:1.5"></div>
+        </div>
+        <div class="fg" style="margin-bottom:10px"><label>태스크 제목 *</label><input id="im-title" placeholder="예: A사 협약서 발송"></div>
+        <div class="fg" style="margin-bottom:0"><label>마감일 (ETA)</label><input id="im-eta" type="date"></div>
+      </div>
+      <div style="width:340px;flex-shrink:0;display:flex;flex-direction:column">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+          <label style="font-size:11px;font-weight:700;color:#64748b;letter-spacing:.04em;text-transform:uppercase">기업 선택</label>
+          <div style="display:flex;gap:6px;align-items:center">
+            <span style="font-size:11px;color:#94a3b8"><span id="im-selected-count">0</span>개 선택</span>
+            <button class="btn btn-ghost" style="padding:2px 8px;font-size:11px" onclick="selectAllInbox()">전체</button>
+            <button class="btn btn-ghost" style="padding:2px 8px;font-size:11px" onclick="clearAllInbox()">초기화</button>
+          </div>
+        </div>
+        <input id="im-search" placeholder="🔍 기업명·트랙 검색" oninput="filterInboxAccounts()"
+          style="width:100%;padding:7px 10px;border:1.5px solid #e2e8f0;border-radius:7px;font-size:13px;outline:none;margin-bottom:6px;transition:border-color .15s"
+          onfocus="this.style.borderColor='#1e40af'" onblur="this.style.borderColor='#e2e8f0'">
+        <div id="im-accounts" style="flex:1;max-height:260px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:8px;padding:6px;background:#fafafa"></div>
+      </div>
+    </div>
+    <div class="modal-footer" style="margin-top:4px">
+      <button class="btn btn-ghost" onclick="closeModals()">취소</button>
+      <button class="btn btn-danger btn-sm" onclick="dismissCandidate()" style="margin-right:auto">무시</button>
+      <button class="btn btn-primary" onclick="confirmCandidate()">✅ 태스크 추가</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── 태스크 추가 모달 ── -->
+<div class="modal-overlay" id="task-modal">
+  <div class="modal">
+    <h3>태스크 추가</h3>
+    <div class="fg"><label>태스크명 *</label><input id="task-title" placeholder="예: NCS 발송 완료"></div>
+    <div class="fg"><label>마감일 (ETA)</label><input id="task-due" type="date"></div>
+    <div class="fg"><label>설명 (선택)</label><input id="task-desc" placeholder=""></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModals()">취소</button>
+      <button class="btn btn-primary" onclick="submitTask()">추가</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── 기업 추가 모달 ── -->
+<div class="modal-overlay" id="account-modal">
+  <div class="modal">
+    <h3>기업 직접 추가</h3>
+    <div class="fg"><label>기업명 *</label><input id="acc-name" placeholder="예: 버스에잇코리아"></div>
+    <div class="fg"><label>트랙명</label><input id="acc-track" placeholder="예: 글로벌 AI 게임기획 전문가 양성과정"></div>
+    <div class="fg"><label>등급</label>
+      <select id="acc-grade"><option value="">선택 안함</option><option value="S">S</option><option value="A">A</option></select>
+    </div>
+    <div class="fg"><label>이메일</label><input id="acc-email" type="email" placeholder="예: contact@company.com"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModals()">취소</button>
+      <button class="btn btn-primary" onclick="submitAccount()">추가</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<!-- ── Detail panel ── -->
+<div id="detail-overlay" onclick="closeDetail()"></div>
+<div id="detail-panel">
+  <div id="detail-header">
+    <div id="detail-header-info">
+      <div id="detail-title"></div>
+      <div id="detail-meta"></div>
+    </div>
+    <button id="detail-close" onclick="closeDetail()">✕</button>
+  </div>
+  <div id="detail-body"></div>
+</div>
+
+<script>
+const STATUS_CYCLE = ['not_started','in_progress','done','na'];
+const STATUS_EMOJI = { not_started:'⬜', in_progress:'🔄', done:'✅', na:'➖' };
+const KANBAN_COLS  = ['planned','in_progress','done'];
+const KANBAN_LABEL = { planned:'예정', in_progress:'진행중', done:'완료' };
+
+let matrixData = { tasks:[], accounts:[], cell_map:{} };
+let allTasks = [];
+
+// ── Tab ──────────────────────────────────────────────────────────────────────
+function showTab(name, btn) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  if (btn) btn.classList.add('active');
+  if (name === 'kanban')   loadKanban();
+  if (name === 'matrix')   loadMatrix();
+  if (name === 'accounts') loadAccounts();
+  if (name === 'inbox')    loadInbox();
+}
+
+// ── API ───────────────────────────────────────────────────────────────────────
+async function api(path, method='GET', body=null) {
+  const opts = { method, headers:{'Content-Type':'application/json'} };
+  if (body) opts.body = JSON.stringify(body);
+  const r = await fetch(path, opts);
+  return r.json();
+}
+
+function toast(msg, dur=2500) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), dur);
+}
+
+function etaClass(due) {
+  if (!due) return 'eta-none';
+  const d = (new Date(due) - new Date(today())) / 86400000;
+  if (d < 0)  return 'eta-overdue';
+  if (d <= 3) return 'eta-soon';
+  return 'eta-ok';
+}
+function etaLabel(due) {
+  if (!due) return 'ETA 미설정';
+  const d = Math.round((new Date(due) - new Date(today())) / 86400000);
+  if (d < 0)  return `${Math.abs(d)}일 초과`;
+  if (d === 0) return '오늘 마감';
+  if (d === 1) return '내일 마감';
+  return `D-${d}`;
+}
+function cardClass(due) {
+  if (!due) return '';
+  const d = (new Date(due) - new Date(today())) / 86400000;
+  if (d < 0)  return 'overdue';
+  if (d <= 3) return 'due-soon';
+  return 'on-track';
+}
+function today() { return new Date().toISOString().slice(0,10); }
+function fmtDate(d) {
+  if (!d) return '–';
+  const [,m,day] = d.split('-');
+  return `${parseInt(m)}/${parseInt(day)}`;
+}
+
+// ── Sheets Sync ───────────────────────────────────────────────────────────────
+async function syncSheets() {
+  const el = document.getElementById('sync-status');
+  el.textContent = '동기화 중...';
+  document.getElementById('sync-btn').disabled = true;
+  try {
+    const r = await api('/api/sync', 'POST');
+    if (r.ok) {
+      el.textContent = `완료: +${r.added} 추가 / ${r.updated} 업데이트 / ${r.removed} 제거 (총 ${r.total}개)`;
+      toast(`시트 싱크 완료: ${r.total}개 기업`);
+      loadKanban(); loadMatrix(); loadAccounts();
+    } else {
+      el.textContent = '오류: ' + r.error;
+      toast('싱크 실패: ' + r.error);
+    }
+  } finally {
+    document.getElementById('sync-btn').disabled = false;
+  }
+}
+
+// ── Kanban ────────────────────────────────────────────────────────────────────
+async function loadKanban() {
+  allTasks = await api('/api/tasks');
+  renderKanban();
+  renderStats();
+}
+
+function renderKanban() {
+  const cols = { planned:[], in_progress:[], done:[] };
+  allTasks.forEach(t => {
+    const k = t.kanban_status || 'planned';
+    (cols[k] = cols[k] || []).push(t);
+  });
+
+  KANBAN_COLS.forEach(col => {
+    const list = cols[col] || [];
+    document.getElementById('cnt-' + col).textContent = list.length;
+    const el = document.getElementById('col-' + col);
+    if (!list.length) {
+      el.innerHTML = `<div style="text-align:center;padding:24px 0;color:#94a3b8;font-size:12px">태스크 없음</div>`;
+      return;
+    }
+    el.innerHTML = list.map(t => renderCard(t)).join('');
+  });
+}
+
+function renderCard(t) {
+  const prevHtml = (t.preview_cells || []).map(c =>
+    `<span class="kc-chip chip-${c.status}" title="${c.account_name}">${c.account_name}</span>`
+  ).join('');
+
+  const moveLeft  = KANBAN_COLS.indexOf(t.kanban_status || 'planned');
+  const prevCol   = moveLeft > 0 ? KANBAN_COLS[moveLeft - 1] : null;
+  const nextCol   = moveLeft < 2 ? KANBAN_COLS[moveLeft + 1] : null;
+  const moveHtml  = `
+    ${prevCol ? `<button class="btn btn-xs btn-ghost" onclick="moveTask(${t.id},'${prevCol}')">← ${KANBAN_LABEL[prevCol]}</button>` : ''}
+    ${nextCol ? `<button class="btn btn-xs btn-primary" onclick="moveTask(${t.id},'${nextCol}')">${KANBAN_LABEL[nextCol]} →</button>` : ''}
+  `;
+
+  return `<div class="kanban-card ${cardClass(t.due_date)}" onclick="openTaskDetail(${t.id})" style="cursor:pointer">
+    <div class="kc-title">${t.title}</div>
+    <div class="kc-meta">
+      <span class="eta-badge ${etaClass(t.due_date)}">${etaLabel(t.due_date)}</span>
+      ${t.due_date ? `<span style="font-size:11px;color:#94a3b8">${fmtDate(t.due_date)}</span>` : ''}
+    </div>
+    <div class="progress-wrap">
+      <div class="progress-bar"><div class="progress-fill" style="width:${t.pct}%"></div></div>
+      <div class="progress-label">${t.done_count}/${t.account_count}개 기업 완료 · ${t.pct}%</div>
+    </div>
+    ${prevHtml ? `<div class="kc-preview">${prevHtml}</div>` : ''}
+    <div class="kc-actions" onclick="event.stopPropagation()">
+      <div class="kc-move">${moveHtml}</div>
+      <button class="btn btn-xs btn-danger" onclick="deleteTask(${t.id})">삭제</button>
+    </div>
+  </div>`;
+}
+
+function renderStats() {
+  const n = allTasks.length;
+  const done = allTasks.filter(t => (t.kanban_status || 'planned') === 'done').length;
+  const overdue = allTasks.filter(t => {
+    if (!t.due_date) return false;
+    return (new Date(t.due_date) - new Date(today())) / 86400000 < 0 && t.kanban_status !== 'done';
+  }).length;
+  const accounts = allTasks[0]?.account_count || 0;
+
+  document.getElementById('stats-bar').innerHTML = `
+    <div class="stat-card"><div class="label">전체 태스크</div><div class="value">${n}</div><div class="sub">등록된 업무</div></div>
+    <div class="stat-card"><div class="label">완료</div><div class="value" style="color:#059669">${done}</div><div class="sub">태스크 완료</div></div>
+    <div class="stat-card"><div class="label">기한 초과</div><div class="value" style="color:${overdue?'#ef4444':'#0f172a'}">${overdue}</div><div class="sub">즉시 처리 필요</div></div>
+    <div class="stat-card"><div class="label">기업 수</div><div class="value">${accounts}</div><div class="sub">총 참여 기업</div></div>
+  `;
+}
+
+async function moveTask(id, kanbanStatus) {
+  await api(`/api/tasks/${id}/kanban`, 'PUT', { kanban_status: kanbanStatus });
+  await loadKanban();
+}
+
+async function deleteTask(id) {
+  if (!confirm('이 태스크를 삭제하면 모든 기업 태스크 상태도 삭제됩니다. 계속할까요?')) return;
+  await api(`/api/tasks/${id}`, 'DELETE');
+  toast('태스크 삭제됨');
+  loadKanban();
+}
+
+// ── Matrix ────────────────────────────────────────────────────────────────────
+async function loadMatrix() {
+  matrixData = await api('/api/matrix');
+  renderMatrix();
+}
+
+function renderMatrix() {
+  const { tasks, accounts, cell_map } = matrixData;
+  const head = document.getElementById('matrix-head');
+  const body = document.getElementById('matrix-body');
+
+  if (!tasks.length || !accounts.length) {
+    head.innerHTML = '';
+    body.innerHTML = `<tr><td colspan="99"><div class="empty"><div class="icon">📊</div><strong>데이터 없음</strong><p>태스크와 기업을 추가하거나 시트 싱크를 실행하세요.</p></div></td></tr>`;
+    document.getElementById('matrix-summary').textContent = '';
+    return;
+  }
+
+  let totalDone = 0;
+  tasks.forEach(t => {
+    t._done = accounts.filter(a => cell_map[`${a.id}_${t.id}`]?.status === 'done').length;
+    totalDone += t._done;
+  });
+  const totalCells = tasks.length * accounts.length;
+  document.getElementById('matrix-summary').textContent = `총 ${totalDone}/${totalCells} 완료`;
+
+  head.innerHTML = `<tr>
+    <th class="row-header">기업</th>
+    ${tasks.map(t => {
+      const pct = accounts.length ? Math.round(t._done / accounts.length * 100) : 0;
+      return `<th class="task-col">${t.title}<span class="col-pct">ETA ${fmtDate(t.due_date)} · ${pct}%</span></th>`;
+    }).join('')}
+  </tr>`;
+
+  let lastTrack = null, rows = '';
+  accounts.forEach(a => {
+    if (a.track_name && a.track_name !== lastTrack) {
+      rows += `<tr class="track-row"><td colspan="${tasks.length+1}">${a.track_name}</td></tr>`;
+      lastTrack = a.track_name;
+    }
+    const badge = a.grade ? `<span class="grade-${a.grade.toLowerCase()}">${a.grade}</span>` : '';
+    rows += `<tr><td class="row-header">${badge}${a.name}</td>
+      ${tasks.map(t => {
+        const cell = cell_map[`${a.id}_${t.id}`] || {};
+        const status = cell.status || 'not_started';
+        return `<td><span class="status-cell s-${status}" onclick="toggleCell(${a.id},${t.id},'${status}')" title="${a.name} · ${t.title}">${STATUS_EMOJI[status]}</span></td>`;
+      }).join('')}
+    </tr>`;
+  });
+  body.innerHTML = rows;
+}
+
+async function toggleCell(accountId, taskId, currentStatus) {
+  const next = STATUS_CYCLE[(STATUS_CYCLE.indexOf(currentStatus) + 1) % STATUS_CYCLE.length];
+  const res = await api('/api/matrix/toggle', 'POST', { account_id:accountId, task_id:taskId, status:next });
+  if (res.ok) {
+    const key = `${accountId}_${taskId}`;
+    if (!matrixData.cell_map[key]) matrixData.cell_map[key] = {};
+    matrixData.cell_map[key].status = next;
+    matrixData.cell_map[key].id = res.at_id;
+    renderMatrix();
+  }
+}
+
+// ── Accounts ──────────────────────────────────────────────────────────────────
+async function loadAccounts() {
+  const accounts = await api('/api/accounts');
+  const el = document.getElementById('account-body');
+  if (!accounts.length) {
+    el.innerHTML = `<tr><td colspan="6"><div class="empty"><div class="icon">🏢</div><strong>기업 없음</strong><p>시트 싱크 또는 직접 추가로 기업을 등록하세요.</p></div></td></tr>`;
+    return;
+  }
+  el.innerHTML = accounts.map(a => {
+    const badge = a.grade ? `<span class="grade-${a.grade.toLowerCase()}">${a.grade}</span>` : '–';
+    const funnel = a.funnel ? `<span class="funnel-badge">${a.funnel}</span>` : '–';
+    return `<tr style="cursor:pointer" onclick="openAccountDetail(${a.id})">
+      <td><strong>${a.name}</strong>${a.contact_name ? `<br><span style="font-size:11px;color:#64748b">${a.contact_name}</span>` : ''}</td>
+      <td style="font-size:12px;color:#475569;max-width:200px">${a.track_name || '–'}</td>
+      <td>${badge}</td>
+      <td>${funnel}</td>
+      <td style="font-size:12px">${a.contact_email || '–'}</td>
+      <td onclick="event.stopPropagation()"><button class="btn btn-danger btn-sm" onclick="deleteAccount(${a.id})">삭제</button></td>
+    </tr>`;
+  }).join('');
+}
+
+async function deleteAccount(id) {
+  if (!confirm('기업을 삭제하면 해당 기업의 모든 태스크 상태도 삭제됩니다. 계속할까요?')) return;
+  await api(`/api/accounts/${id}`, 'DELETE');
+  toast('기업 삭제됨');
+  loadAccounts();
+}
+
+// ── Modals ────────────────────────────────────────────────────────────────────
+function openTaskModal() {
+  ['task-title','task-desc'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('task-due').value = '';
+  document.getElementById('task-modal').classList.add('open');
+  setTimeout(() => document.getElementById('task-title').focus(), 50);
+}
+function openAccountModal() {
+  ['acc-name','acc-track','acc-email'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('acc-grade').value = '';
+  document.getElementById('account-modal').classList.add('open');
+  setTimeout(() => document.getElementById('acc-name').focus(), 50);
+}
+function closeModals() {
+  document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('open'));
+}
+
+async function submitTask() {
+  const title = document.getElementById('task-title').value.trim();
+  if (!title) { alert('태스크명을 입력해주세요.'); return; }
+  await api('/api/tasks','POST',{
+    title,
+    due_date: document.getElementById('task-due').value || null,
+    description: document.getElementById('task-desc').value.trim()
+  });
+  closeModals(); toast('태스크 추가됨');
+  loadKanban(); loadMatrix();
+}
+
+async function submitAccount() {
+  const name = document.getElementById('acc-name').value.trim();
+  if (!name) { alert('기업명을 입력해주세요.'); return; }
+  await api('/api/accounts','POST',{
+    name,
+    track_name: document.getElementById('acc-track').value.trim() || null,
+    grade: document.getElementById('acc-grade').value || null,
+    contact_email: document.getElementById('acc-email').value.trim() || null
+  });
+  closeModals(); toast('기업 추가됨');
+  loadAccounts(); loadKanban(); loadMatrix();
+}
+
+// ── Inbox ─────────────────────────────────────────────────────────────────────
+let inboxCandidates = [];
+let allAccountsCache = [];
+let currentCandidateId = null;
+
+async function loadInbox() {
+  inboxCandidates = await api('/api/inbox');
+  renderInbox();
+  updateInboxBadge();
+}
+
+function updateInboxBadge() {
+  const badge = document.getElementById('inbox-badge');
+  const n = inboxCandidates.length;
+  if (n > 0) {
+    badge.textContent = n;
+    badge.style.display = 'inline';
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
+function renderInbox() {
+  const el = document.getElementById('inbox-list');
+  if (!inboxCandidates.length) {
+    el.innerHTML = `<div class="empty"><div class="icon">📭</div><strong>후보 없음</strong><p>스캔 버튼을 눌러 Slack·Notion·Gmail을 읽어오거나, 아래에서 수동 추가해주세요.</p></div>`;
+    return;
+  }
+  el.innerHTML = inboxCandidates.map(c => {
+    const src = c.source || 'manual';
+    const companies = (c.account_ids || []).map(id => {
+      const a = allAccountsCache.find(x => x.id === id);
+      return a ? `<span class="inbox-company-chip">${a.name}</span>` : '';
+    }).join('');
+    const eta = c.eta ? `<span class="eta-badge ${etaClass(c.eta)}">${etaLabel(c.eta)}</span>` : '';
+    return `<div class="inbox-card source-${src}">
+      <div>
+        <span class="inbox-src-badge src-${src}">${src.toUpperCase()}</span>
+      </div>
+      <div class="inbox-body">
+        <div class="inbox-title">${c.title}</div>
+        ${c.raw_text ? `<div class="inbox-raw">${c.raw_text}</div>` : ''}
+        <div class="inbox-meta">
+          ${eta}
+          ${companies}
+          ${!(c.account_ids||[]).length ? '<span style="font-size:11px;color:#94a3b8">기업 미선택</span>' : ''}
+        </div>
+      </div>
+      <div class="inbox-actions">
+        <button class="btn btn-primary btn-sm" onclick="openInboxModal(${c.id})">검토</button>
+        <button class="btn btn-danger btn-sm" onclick="quickDismiss(${c.id})">✕</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function runScan() {
+  const el = document.getElementById('inbox-scan-status');
+  el.textContent = '스캔 중...';
+  const r = await api('/api/inbox/scan', 'POST');
+  if (r.ok) {
+    el.textContent = `완료: ${r.added}건 추가 (${r.scanned}개 메시지 분석)`;
+    toast(`인박스 스캔 완료: ${r.added}건 추가`);
+    loadInbox();
+  } else {
+    el.textContent = '오류: ' + r.error;
+    toast('스캔 실패: ' + r.error);
+  }
+}
+
+async function openInboxModal(cid) {
+  const c = inboxCandidates.find(x => x.id === cid);
+  if (!c) return;
+  currentCandidateId = cid;
+
+  document.getElementById('im-source').textContent = c.source?.toUpperCase() || 'MANUAL';
+  document.getElementById('im-raw').textContent = c.raw_text || '(원본 없음)';
+  document.getElementById('im-title').value = c.title || '';
+  document.getElementById('im-eta').value = c.eta || '';
+  document.getElementById('im-search').value = '';
+
+  // load accounts if not cached
+  if (!allAccountsCache.length) {
+    allAccountsCache = await api('/api/accounts');
+  }
+  renderInboxAccounts(c.account_ids || []);
+  document.getElementById('inbox-modal').classList.add('open');
+  setTimeout(() => document.getElementById('im-title').focus(), 50);
+}
+
+function renderInboxAccounts(selectedIds) {
+  const wrap = document.getElementById('im-accounts');
+  const query = document.getElementById('im-search').value.toLowerCase();
+  const filtered = allAccountsCache.filter(a =>
+    !query || a.name.toLowerCase().includes(query) ||
+    (a.track_name || '').toLowerCase().includes(query)
+  );
+  if (!filtered.length) {
+    wrap.innerHTML = `<div style="text-align:center;padding:20px;color:#94a3b8;font-size:12px">검색 결과 없음</div>`;
+    return;
+  }
+  const gradeBadge = g => {
+    if (!g) return '';
+    const cls = g === 'S' ? 'im-grade-s' : g === 'A' ? 'im-grade-a' : '';
+    return cls ? `<span class="im-cgrade ${cls}">${g}</span>` : '';
+  };
+  wrap.innerHTML = `<div class="im-accounts-grid">` + filtered.map(a => {
+    const checked = selectedIds.includes(a.id);
+    const selCls  = checked ? ' selected' : '';
+    const track   = a.track_name ? a.track_name.replace(/^\(.*?\)\s*/, '') : '';
+    return `<div class="im-check-row${selCls}" onclick="toggleInboxAccount(${a.id},this)">
+      <input type="checkbox" class="im-check" id="imc-${a.id}" ${checked?'checked':''} onclick="event.stopPropagation();updateSelectedCount()">
+      <label for="imc-${a.id}" style="min-width:0">
+        <div class="im-cname">${a.name}</div>
+        ${track ? `<div class="im-ctrack">${track}</div>` : ''}
+      </label>
+      ${gradeBadge(a.grade)}
+    </div>`;
+  }).join('') + `</div>`;
+  updateSelectedCount();
+}
+
+function filterInboxAccounts() {
+  const c = inboxCandidates.find(x => x.id === currentCandidateId);
+  const cur = getCheckedAccountIds();
+  renderInboxAccounts(cur);
+}
+
+function toggleInboxAccount(id, row) {
+  const cb = document.getElementById('imc-' + id);
+  if (!cb) return;
+  cb.checked = !cb.checked;
+  row.classList.toggle('selected', cb.checked);
+  updateSelectedCount();
+}
+function selectAllInbox() {
+  document.querySelectorAll('#im-accounts input[type=checkbox]').forEach(cb => {
+    cb.checked = true;
+    cb.closest('.im-check-row')?.classList.add('selected');
+  });
+  updateSelectedCount();
+}
+function clearAllInbox() {
+  document.querySelectorAll('#im-accounts input[type=checkbox]').forEach(cb => {
+    cb.checked = false;
+    cb.closest('.im-check-row')?.classList.remove('selected');
+  });
+  updateSelectedCount();
+}
+
+function getCheckedAccountIds() {
+  return Array.from(document.querySelectorAll('#im-accounts input[type=checkbox]:checked'))
+    .map(cb => parseInt(cb.id.replace('imc-', '')));
+}
+
+function updateSelectedCount() {
+  document.getElementById('im-selected-count').textContent = getCheckedAccountIds().length;
+}
+
+async function confirmCandidate() {
+  const title = document.getElementById('im-title').value.trim();
+  if (!title) { alert('태스크 제목을 입력해주세요.'); return; }
+  const account_ids = getCheckedAccountIds();
+  const eta = document.getElementById('im-eta').value || null;
+  const r = await api(`/api/inbox/${currentCandidateId}/confirm`, 'POST', { title, account_ids, eta });
+  if (r.ok) {
+    closeModals();
+    toast(`태스크 추가됨: ${title}`);
+    loadInbox(); loadKanban(); loadMatrix();
+  } else {
+    toast('오류: ' + r.error);
+  }
+}
+
+async function quickDismiss(cid) {
+  await api(`/api/inbox/${cid}`, 'DELETE');
+  toast('무시됨');
+  inboxCandidates = inboxCandidates.filter(c => c.id !== cid);
+  renderInbox(); updateInboxBadge();
+}
+
+async function dismissCandidate() {
+  await api(`/api/inbox/${currentCandidateId}`, 'DELETE');
+  closeModals(); toast('무시됨');
+  loadInbox();
+}
+
+// ── Detail panel ─────────────────────────────────────────────────────────────
+function openDetail() {
+  document.getElementById('detail-overlay').classList.add('open');
+  document.getElementById('detail-panel').classList.add('open');
+}
+function closeDetail() {
+  document.getElementById('detail-overlay').classList.remove('open');
+  document.getElementById('detail-panel').classList.remove('open');
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDetail(); });
+
+// ── Task detail ───────────────────────────────────────────────────────────────
+async function openTaskDetail(tid) {
+  // ensure latest matrix data
+  if (!matrixData.tasks.length) matrixData = await api('/api/matrix');
+  const t = matrixData.tasks.find(x => x.id === tid) || allTasks.find(x => x.id === tid);
+  if (!t) return;
+
+  const accounts = matrixData.accounts;
+  const STATUS_LABEL = { not_started:'미시작', in_progress:'진행중', done:'완료', na:'해당없음' };
+  const STATUS_CYCLE = ['not_started','in_progress','done','na'];
+
+  const done  = accounts.filter(a => matrixData.cell_map[`${a.id}_${t.id}`]?.status === 'done').length;
+  const prog  = accounts.filter(a => matrixData.cell_map[`${a.id}_${t.id}`]?.status === 'in_progress').length;
+  const pct   = accounts.length ? Math.round(done / accounts.length * 100) : 0;
+
+  document.getElementById('detail-title').textContent = t.title;
+  document.getElementById('detail-meta').innerHTML = `
+    <span class="eta-badge ${etaClass(t.due_date)}">${etaLabel(t.due_date)}</span>
+    ${t.due_date ? `<span style="font-size:11px;color:#94a3b8">${t.due_date}</span>` : ''}
+    <span style="font-size:11px;color:#94a3b8">${t.description || ''}</span>
+  `;
+
+  // group accounts by track
+  const tracks = {};
+  accounts.forEach(a => {
+    const tr = a.track_name || '기타';
+    if (!tracks[tr]) tracks[tr] = [];
+    tracks[tr].push(a);
+  });
+
+  let rows = '';
+  Object.entries(tracks).forEach(([tr, accs]) => {
+    rows += `<div class="detail-track-header">${tr}</div>`;
+    accs.forEach(a => {
+      const cell = matrixData.cell_map[`${a.id}_${t.id}`] || {};
+      const st = cell.status || 'not_started';
+      const atId = cell.id || '';
+      const badge = a.grade ? `<span class="grade-${a.grade.toLowerCase()}" style="font-size:9px">${a.grade}</span> ` : '';
+      rows += `<div class="detail-company-row">
+        <div>
+          <div class="detail-company-name">${badge}${a.name}</div>
+        </div>
+        <button class="detail-status-btn dsb-${st}"
+          onclick="cycleDetailStatus(${a.id},${t.id},'${st}',this)"
+          data-at="${atId}">${STATUS_LABEL[st]}</button>
+      </div>`;
+    });
+  });
+
+  document.getElementById('detail-body').innerHTML = `
+    <div class="detail-section">
+      <div class="detail-progress-wrap">
+        <div class="detail-progress-bar"><div class="detail-progress-fill" style="width:${pct}%"></div></div>
+        <div class="detail-progress-stats">
+          <div class="detail-stat"><div class="n" style="color:#059669">${done}</div><div class="l">완료</div></div>
+          <div class="detail-stat"><div class="n" style="color:#d97706">${prog}</div><div class="l">진행중</div></div>
+          <div class="detail-stat"><div class="n">${accounts.length - done - prog}</div><div class="l">미시작</div></div>
+          <div class="detail-stat"><div class="n" style="color:#1e40af">${pct}%</div><div class="l">달성률</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="detail-section">
+      <div class="detail-section-title">기업별 현황 (${accounts.length}개)</div>
+      ${rows}
+    </div>`;
+
+  openDetail();
+}
+
+async function cycleDetailStatus(accountId, taskId, currentStatus, btn) {
+  const STATUS_LABEL = { not_started:'미시작', in_progress:'진행중', done:'완료', na:'해당없음' };
+  const STATUS_CYCLE = ['not_started','in_progress','done','na'];
+  const next = STATUS_CYCLE[(STATUS_CYCLE.indexOf(currentStatus) + 1) % STATUS_CYCLE.length];
+  const res = await api('/api/matrix/toggle', 'POST', { account_id: accountId, task_id: taskId, status: next });
+  if (res.ok) {
+    const key = `${accountId}_${taskId}`;
+    if (!matrixData.cell_map[key]) matrixData.cell_map[key] = {};
+    matrixData.cell_map[key].status = next;
+    matrixData.cell_map[key].id = res.at_id;
+    btn.className = `detail-status-btn dsb-${next}`;
+    btn.textContent = STATUS_LABEL[next];
+    btn.setAttribute('onclick', `cycleDetailStatus(${accountId},${taskId},'${next}',this)`);
+    // refresh kanban stats silently
+    allTasks = await api('/api/tasks');
+    renderKanban(); renderStats();
+  }
+}
+
+// ── Account detail ────────────────────────────────────────────────────────────
+async function openAccountDetail(aid) {
+  if (!allAccountsCache.length) allAccountsCache = await api('/api/accounts');
+  if (!matrixData.tasks.length)  matrixData = await api('/api/matrix');
+
+  const a = allAccountsCache.find(x => x.id === aid);
+  if (!a) return;
+
+  const STATUS_LABEL = { not_started:'미시작', in_progress:'진행중', done:'완료', na:'해당없음' };
+  const badge = a.grade ? `<span class="grade-${a.grade.toLowerCase()}">${a.grade}</span> ` : '';
+
+  document.getElementById('detail-title').innerHTML = `${badge}${a.name}`;
+  document.getElementById('detail-meta').innerHTML = `
+    <span style="font-size:12px;color:#64748b">${a.track_name || ''}</span>
+    ${a.funnel ? `<span class="funnel-badge">${a.funnel}</span>` : ''}
+  `;
+
+  const taskRows = matrixData.tasks.map(t => {
+    const cell = matrixData.cell_map[`${aid}_${t.id}`] || {};
+    const st = cell.status || 'not_started';
+    return `<div class="detail-task-row">
+      <div class="detail-task-title">${t.title}</div>
+      ${t.due_date ? `<span style="font-size:11px;color:#94a3b8">${fmtDate(t.due_date)}</span>` : ''}
+      <span class="eta-badge ${st==='done'?'eta-ok':st==='in_progress'?'eta-soon':'eta-none'}" style="font-size:10px">
+        ${STATUS_LABEL[st]}
+      </span>
+    </div>`;
+  }).join('');
+
+  document.getElementById('detail-body').innerHTML = `
+    <div class="detail-section">
+      <div class="detail-section-title">기업 정보</div>
+      ${a.contact_name ? `<div class="detail-info-row"><div class="detail-info-label">담당자</div><div class="detail-info-val">${a.contact_name}</div></div>` : ''}
+      ${a.contact_email ? `<div class="detail-info-row"><div class="detail-info-label">이메일</div><div class="detail-info-val" style="word-break:break-all">${a.contact_email}</div></div>` : ''}
+      ${a.funnel ? `<div class="detail-info-row"><div class="detail-info-label">퍼널</div><div class="detail-info-val">${a.funnel}</div></div>` : ''}
+    </div>
+    <div class="detail-section">
+      <div class="detail-section-title">태스크 현황 (${matrixData.tasks.length}개)</div>
+      ${taskRows || '<div style="color:#94a3b8;font-size:13px">등록된 태스크 없음</div>'}
+    </div>`;
+
+  openDetail();
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+document.querySelectorAll('.modal-overlay').forEach(o => {
+  o.addEventListener('click', e => { if (e.target === o) closeModals(); });
+});
+document.getElementById('task-modal').addEventListener('keydown', e => { if (e.key==='Enter') submitTask(); });
+document.getElementById('account-modal').addEventListener('keydown', e => { if (e.key==='Enter') submitAccount(); });
+
+// hash routing: localhost:5000/#inbox 로 접속하면 인박스 탭 자동 오픈
+(function() {
+  const hash = location.hash.slice(1);
+  if (['kanban','matrix','accounts','inbox'].includes(hash)) {
+    const btn = document.querySelector(`nav button[onclick*="'${hash}'"]`);
+    showTab(hash, btn);
+  } else {
+    loadKanban();
+  }
+})();
+// preload accounts cache and inbox badge on startup
+api('/api/accounts').then(a => { allAccountsCache = a; });
+api('/api/inbox').then(cs => { inboxCandidates = cs; updateInboxBadge(); });
+</script>
+</body>
+</html>

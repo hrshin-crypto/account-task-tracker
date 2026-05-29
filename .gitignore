@@ -1,6 +1,7 @@
 # Secrets — never commit
 .env
 credentials.json
+credentials_b64.txt
 gmail_credentials.json
 
 # Database
