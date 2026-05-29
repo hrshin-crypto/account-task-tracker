@@ -1130,7 +1130,8 @@ async function openTaskDetail(tid) {
   const t = matrixData.tasks.find(x => x.id === tid) || allTasks.find(x => x.id === tid);
   if (!t) return;
 
-  const accounts = matrixData.accounts;
+  // 이 태스크에 연결된 기업만 필터링
+  const accounts = matrixData.accounts.filter(a => matrixData.cell_map[`${a.id}_${t.id}`]);
   const STATUS_LABEL = { not_started:'미시작', in_progress:'진행중', done:'완료', na:'해당없음' };
   const STATUS_CYCLE = ['not_started','in_progress','done','na'];
 
