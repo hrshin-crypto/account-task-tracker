@@ -1016,8 +1016,18 @@ async function openStatDetail(type) {
     const groupIcons = { 'AI 캠퍼스': '🤖', '고성과': '⭐', '기타': '📁' };
 
     bodyHtml = Object.entries(topGroups).filter(([,accs]) => accs.length > 0).map(([gName, accs]) => {
+      const gradeOrder = g => {
+        if (!g) return 9;
+        const gs = g.trim();
+        if (gs.includes('네임드')) return 0;
+        if (gs.toUpperCase() === 'S') return 1;
+        if (gs.toUpperCase() === 'A' || gs.includes('(A)')) return 2;
+        if (gs.toUpperCase() === 'B') return 3;
+        return 8;
+      };
       const tracks = {};
       accs.forEach(a => { const tr = a.track_name||'기타'; if(!tracks[tr]) tracks[tr]=[]; tracks[tr].push(a); });
+      Object.values(tracks).forEach(list => list.sort((a,b) => gradeOrder(a.grade) - gradeOrder(b.grade)));
       const gId = 'tg-' + gName.replace(/\s/g,'');
 
       const subHtml = Object.entries(tracks).map(([tr, taccs], ti) => {
