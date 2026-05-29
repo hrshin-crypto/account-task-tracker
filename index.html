@@ -613,10 +613,10 @@ function renderStats() {
   const accounts = allTasks[0]?.account_count || 0;
 
   document.getElementById('stats-bar').innerHTML = `
-    <div class="stat-card"><div class="label">전체 태스크</div><div class="value">${n}</div><div class="sub">등록된 업무</div></div>
-    <div class="stat-card"><div class="label">완료</div><div class="value" style="color:#059669">${done}</div><div class="sub">태스크 완료</div></div>
-    <div class="stat-card"><div class="label">기한 초과</div><div class="value" style="color:${overdue?'#ef4444':'#0f172a'}">${overdue}</div><div class="sub">즉시 처리 필요</div></div>
-    <div class="stat-card"><div class="label">기업 수</div><div class="value">${accounts}</div><div class="sub">총 참여 기업</div></div>
+    <div class="stat-card" style="cursor:pointer" onclick="openStatDetail('all')"><div class="label">전체 태스크</div><div class="value">${n}</div><div class="sub">등록된 업무</div></div>
+    <div class="stat-card" style="cursor:pointer" onclick="openStatDetail('done')"><div class="label">완료</div><div class="value" style="color:#059669">${done}</div><div class="sub">태스크 완료</div></div>
+    <div class="stat-card" style="cursor:pointer" onclick="openStatDetail('overdue')"><div class="label">기한 초과</div><div class="value" style="color:${overdue?'#ef4444':'#0f172a'}">${overdue}</div><div class="sub">즉시 처리 필요</div></div>
+    <div class="stat-card" style="cursor:pointer" onclick="openStatDetail('accounts')"><div class="label">기업 수</div><div class="value">${accounts}</div><div class="sub">총 참여 기업</div></div>
   `;
 }
 
@@ -952,6 +952,67 @@ async function dismissCandidate() {
   await api(`/api/inbox/${currentCandidateId}`, 'DELETE');
   closeModals(); toast('무시됨');
   loadInbox();
+}
+
+// ── Stat card detail ─────────────────────────────────────────────────────────
+async function openStatDetail(type) {
+  if (!allAccountsCache.length) allAccountsCache = await api('/api/accounts');
+  if (!allTasks.length) allTasks = await api('/api/tasks');
+
+  const KANBAN_LABEL = { planned:'예정', in_progress:'진행중', done:'완료' };
+  const titles = { all:'전체 태스크', done:'완료된 태스크', overdue:'기한 초과 태스크', accounts:'참여 기업 목록' };
+
+  let filtered, bodyHtml;
+
+  if (type === 'accounts') {
+    document.getElementById('detail-title').textContent = `기업 목록 (${allAccountsCache.length}개)`;
+    document.getElementById('detail-meta').innerHTML = `<span style="font-size:12px;color:#64748b">클릭하면 기업 상세 정보</span>`;
+    const tracks = {};
+    allAccountsCache.forEach(a => {
+      const tr = a.track_name || '기타';
+      if (!tracks[tr]) tracks[tr] = [];
+      tracks[tr].push(a);
+    });
+    bodyHtml = Object.entries(tracks).map(([tr, accs]) => `
+      <div class="detail-track-header">${tr}</div>
+      ${accs.map(a => {
+        const badge = a.grade ? `<span class="grade-${a.grade.toLowerCase()}" style="font-size:9px">${a.grade}</span> ` : '';
+        return `<div class="detail-company-row" style="cursor:pointer" onclick="closeDetail();setTimeout(()=>{showTab('accounts',document.querySelector('nav button:nth-child(3)'))||loadAccounts();openAccountDetail(${a.id})},200)">
+          <div><div class="detail-company-name">${badge}${a.name}</div></div>
+        </div>`;
+      }).join('')}
+    `).join('');
+  } else {
+    if (type === 'all') filtered = allTasks;
+    else if (type === 'done') filtered = allTasks.filter(t => (t.kanban_status||'planned') === 'done');
+    else if (type === 'overdue') filtered = allTasks.filter(t => {
+      if (!t.due_date) return false;
+      return (new Date(t.due_date) - new Date(today())) / 86400000 < 0 && t.kanban_status !== 'done';
+    });
+
+    document.getElementById('detail-title').textContent = `${titles[type]} (${filtered.length}개)`;
+    document.getElementById('detail-meta').innerHTML = '';
+
+    if (!filtered.length) {
+      bodyHtml = `<div class="empty"><div class="icon">${type==='overdue'?'🎉':'📋'}</div><strong>${type==='overdue'?'기한 초과 없음':'태스크 없음'}</strong></div>`;
+    } else {
+      bodyHtml = `<div class="detail-section">` + filtered.map(t => {
+        const kLabel = KANBAN_LABEL[t.kanban_status||'planned'];
+        const kColor = t.kanban_status==='done'?'#059669':t.kanban_status==='in_progress'?'#d97706':'#1e40af';
+        return `<div class="detail-task-row" style="cursor:pointer;margin-bottom:8px" onclick="closeDetail();setTimeout(()=>openTaskDetail(${t.id}),200)">
+          <div style="flex:1">
+            <div class="detail-task-title">${t.title}</div>
+            <div style="font-size:11px;color:#94a3b8;margin-top:2px">${t.done_count}/${t.account_count}개 완료 · ${t.pct}%</div>
+          </div>
+          ${t.due_date?`<span class="eta-badge ${etaClass(t.due_date)}" style="font-size:10px">${etaLabel(t.due_date)}</span>`:''}
+          <span style="font-size:11px;font-weight:600;color:${kColor}">${kLabel}</span>
+        </div>`;
+      }).join('') + `</div>`;
+    }
+  }
+
+  document.getElementById('detail-body').innerHTML = `<div class="detail-section">${bodyHtml}</div>`;
+  openDetail();
 }
 
 // ── Detail panel ─────────────────────────────────────────────────────────────
