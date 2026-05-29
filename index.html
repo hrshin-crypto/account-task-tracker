@@ -1010,41 +1010,49 @@ async function openStatDetail(type) {
     const groupIcons = { 'AI 캠퍼스': '🤖', '고성과': '⭐', '기타': '📁' };
 
     bodyHtml = Object.entries(topGroups).filter(([,accs]) => accs.length > 0).map(([gName, accs]) => {
-      // sub-group by track within top group
       const tracks = {};
       accs.forEach(a => { const tr = a.track_name||'기타'; if(!tracks[tr]) tracks[tr]=[]; tracks[tr].push(a); });
+      const gId = 'tg-' + gName.replace(/\s/g,'');
 
-      const subHtml = Object.entries(tracks).map(([tr, taccs]) => {
+      const subHtml = Object.entries(tracks).map(([tr, taccs], ti) => {
         const trackShort = tr.replace(/^\(.*?\)\s*/, '').replace(/과정$/, '').trim();
-        return `<div style="margin-bottom:4px">
-          <div style="font-size:10px;font-weight:700;color:#94a3b8;padding:6px 8px 3px;letter-spacing:.03em">${trackShort}</div>
-          ${taccs.map(a => {
-            num++;
-            return `<div class="detail-company-row" style="cursor:pointer" onclick="closeDetail();setTimeout(()=>openAccountDetail(${a.id}),200)">
-              <span class="company-num">${num}</span>
-              <div style="flex:1;min-width:0">
-                <div style="display:flex;align-items:center;gap:4px">
-                  ${gradeBadge(a.grade,'9px')}
-                  <span class="detail-company-name">${a.name}</span>
-                </div>
-                ${a.contact_name||a.contact_email ? `<div style="font-size:10px;color:#94a3b8;margin-top:1px">${[a.contact_name,a.contact_email].filter(Boolean).join(' · ')}</div>` : ''}
+        const tId = gId + '-t' + ti;
+        const companyRows = taccs.map(a => {
+          num++;
+          return `<div class="detail-company-row" style="cursor:pointer;padding-left:12px" onclick="closeDetail();setTimeout(()=>openAccountDetail(${a.id}),200)">
+            <span class="company-num">${num}</span>
+            <div style="flex:1;min-width:0">
+              <div style="display:flex;align-items:center;gap:4px">
+                ${gradeBadge(a.grade,'9px')}
+                <span class="detail-company-name">${a.name}</span>
               </div>
-              ${a.funnel ? `<span class="funnel-badge" style="font-size:9px">${a.funnel}</span>` : ''}
-            </div>`;
-          }).join('')}
+              ${a.contact_name||a.contact_email ? `<div style="font-size:10px;color:#94a3b8;margin-top:1px">${[a.contact_name,a.contact_email].filter(Boolean).join(' · ')}</div>` : ''}
+            </div>
+            ${a.funnel ? `<span class="funnel-badge" style="font-size:9px">${a.funnel}</span>` : ''}
+          </div>`;
+        }).join('');
+
+        return `<div style="margin-bottom:4px;border:1px solid #f1f5f9;border-radius:8px;overflow:hidden">
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 10px;background:#f8fafc;cursor:pointer" onclick="toggleGroup('${tId}')">
+            <span style="font-size:11px;font-weight:700;color:#475569">${trackShort}</span>
+            <div style="display:flex;align-items:center;gap:6px">
+              <span style="font-size:10px;color:#94a3b8">${taccs.length}개</span>
+              <span class="toggle-group-arrow open" id="${tId}-arrow" style="font-size:10px">▶</span>
+            </div>
+          </div>
+          <div class="toggle-group-body open" id="${tId}" style="padding:4px 6px">${companyRows}</div>
         </div>`;
       }).join('');
 
-      const gId = 'tg-' + gName.replace(/\s/g,'');
-      return `<div class="toggle-group">
+      return `<div class="toggle-group" style="margin-bottom:10px">
         <div class="toggle-group-header" onclick="toggleGroup('${gId}')">
           <div class="toggle-group-title">
             <span>${groupIcons[gName]}</span> ${gName}
-            <span class="toggle-group-count">${accs.length}개</span>
+            <span class="toggle-group-count">${accs.length}개 · ${Object.keys(tracks).length}개 트랙</span>
           </div>
           <span class="toggle-group-arrow open" id="${gId}-arrow">▶</span>
         </div>
-        <div class="toggle-group-body open" id="${gId}">${subHtml}</div>
+        <div class="toggle-group-body open" id="${gId}" style="padding:8px">${subHtml}</div>
       </div>`;
     }).join('');
   } else {
