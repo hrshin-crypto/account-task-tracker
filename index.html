@@ -128,8 +128,26 @@ tbody td.row-header {
 .s-in_progress { background: #fef9c3; }
 .s-done        { background: #dcfce7; }
 .s-na          { background: #f8fafc; opacity: .5; }
-.grade-s { background: #ede9fe; color: #7c3aed; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 700; margin-right: 5px; }
-.grade-a { background: #dbeafe; color: #1d4ed8; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 700; margin-right: 5px; }
+.grade-s      { background: #ede9fe; color: #7c3aed; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 700; margin-right: 5px; }
+.grade-a      { background: #dbeafe; color: #1d4ed8; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 700; margin-right: 5px; }
+.grade-named  { background: #dbeafe; color: #1d4ed8; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 700; margin-right: 5px; }
+.grade-b      { background: #f1f5f9; color: #64748b; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 700; margin-right: 5px; }
+
+/* ── Toggle group ── */
+.toggle-group { margin-bottom: 12px; border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden; }
+.toggle-group-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 14px; background: #f8fafc; cursor: pointer; user-select: none;
+  transition: background .15s;
+}
+.toggle-group-header:hover { background: #f1f5f9; }
+.toggle-group-title { font-size: 12px; font-weight: 700; color: #1e293b; display: flex; align-items: center; gap: 8px; }
+.toggle-group-count { font-size: 11px; color: #64748b; font-weight: 500; }
+.toggle-group-arrow { font-size: 12px; color: #94a3b8; transition: transform .2s; }
+.toggle-group-arrow.open { transform: rotate(90deg); }
+.toggle-group-body { display: none; padding: 6px 8px; }
+.toggle-group-body.open { display: block; }
+.company-num { font-size: 10px; color: #cbd5e1; width: 18px; flex-shrink: 0; text-align: right; }
 
 /* ── Account table ── */
 .account-table { width: 100%; border-collapse: collapse; background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
@@ -672,8 +690,7 @@ function renderMatrix() {
       rows += `<tr class="track-row"><td colspan="${tasks.length+1}">${a.track_name}</td></tr>`;
       lastTrack = a.track_name;
     }
-    const badge = a.grade ? `<span class="grade-${a.grade.toLowerCase()}">${a.grade}</span>` : '';
-    rows += `<tr><td class="row-header">${badge}${a.name}</td>
+    rows += `<tr><td class="row-header">${gradeBadge(a.grade)}${a.name}</td>
       ${tasks.map(t => {
         const cell = cell_map[`${a.id}_${t.id}`] || {};
         const status = cell.status || 'not_started';
@@ -705,7 +722,7 @@ async function loadAccounts() {
     return;
   }
   el.innerHTML = accounts.map(a => {
-    const badge = a.grade ? `<span class="grade-${a.grade.toLowerCase()}">${a.grade}</span>` : '–';
+    const badge = a.grade ? gradeBadge(a.grade) : '–';
     const funnel = a.funnel ? `<span class="funnel-badge">${a.funnel}</span>` : '–';
     return `<tr style="cursor:pointer" onclick="openAccountDetail(${a.id})">
       <td><strong>${a.name}</strong>${a.contact_name ? `<br><span style="font-size:11px;color:#64748b">${a.contact_name}</span>` : ''}</td>
@@ -954,6 +971,18 @@ async function dismissCandidate() {
   loadInbox();
 }
 
+// ── Grade badge helper ────────────────────────────────────────────────────────
+function gradeBadge(g, size='10px') {
+  if (!g) return '';
+  const gs = g.toUpperCase();
+  let cls, label;
+  if (gs === 'S') { cls = 'grade-s'; label = 'S'; }
+  else if (gs === 'A' || gs.includes('(A)') || gs.includes('네임드')) { cls = 'grade-a'; label = 'A'; }
+  else if (gs === 'B') { cls = 'grade-b'; label = 'B'; }
+  else { cls = 'grade-b'; label = gs.substring(0,2); }
+  return `<span class="${cls}" style="font-size:${size}">${label}</span>`;
+}
+
 // ── Stat card detail ─────────────────────────────────────────────────────────
 async function openStatDetail(type) {
   if (!allAccountsCache.length) allAccountsCache = await api('/api/accounts');
@@ -967,21 +996,57 @@ async function openStatDetail(type) {
   if (type === 'accounts') {
     document.getElementById('detail-title').textContent = `기업 목록 (${allAccountsCache.length}개)`;
     document.getElementById('detail-meta').innerHTML = `<span style="font-size:12px;color:#64748b">클릭하면 기업 상세 정보</span>`;
-    const tracks = {};
+
+    // Top-level grouping: AI캠퍼스 vs 고성과 vs 기타
+    const topGroups = { 'AI 캠퍼스': [], '고성과': [], '기타': [] };
     allAccountsCache.forEach(a => {
-      const tr = a.track_name || '기타';
-      if (!tracks[tr]) tracks[tr] = [];
-      tracks[tr].push(a);
+      const tr = (a.track_name || '').toLowerCase();
+      if (tr.includes('ai campus') || tr.includes('ai 캠퍼스')) topGroups['AI 캠퍼스'].push(a);
+      else if (tr.includes('고성과')) topGroups['고성과'].push(a);
+      else topGroups['기타'].push(a);
     });
-    bodyHtml = Object.entries(tracks).map(([tr, accs]) => `
-      <div class="detail-track-header">${tr}</div>
-      ${accs.map(a => {
-        const badge = a.grade ? `<span class="grade-${a.grade.toLowerCase()}" style="font-size:9px">${a.grade}</span> ` : '';
-        return `<div class="detail-company-row" style="cursor:pointer" onclick="closeDetail();setTimeout(()=>{showTab('accounts',document.querySelector('nav button:nth-child(3)'))||loadAccounts();openAccountDetail(${a.id})},200)">
-          <div><div class="detail-company-name">${badge}${a.name}</div></div>
+
+    let num = 0;
+    const groupIcons = { 'AI 캠퍼스': '🤖', '고성과': '⭐', '기타': '📁' };
+
+    bodyHtml = Object.entries(topGroups).filter(([,accs]) => accs.length > 0).map(([gName, accs]) => {
+      // sub-group by track within top group
+      const tracks = {};
+      accs.forEach(a => { const tr = a.track_name||'기타'; if(!tracks[tr]) tracks[tr]=[]; tracks[tr].push(a); });
+
+      const subHtml = Object.entries(tracks).map(([tr, taccs]) => {
+        const trackShort = tr.replace(/^\(.*?\)\s*/, '').replace(/과정$/, '').trim();
+        return `<div style="margin-bottom:4px">
+          <div style="font-size:10px;font-weight:700;color:#94a3b8;padding:6px 8px 3px;letter-spacing:.03em">${trackShort}</div>
+          ${taccs.map(a => {
+            num++;
+            return `<div class="detail-company-row" style="cursor:pointer" onclick="closeDetail();setTimeout(()=>openAccountDetail(${a.id}),200)">
+              <span class="company-num">${num}</span>
+              <div style="flex:1;min-width:0">
+                <div style="display:flex;align-items:center;gap:4px">
+                  ${gradeBadge(a.grade,'9px')}
+                  <span class="detail-company-name">${a.name}</span>
+                </div>
+                ${a.contact_name||a.contact_email ? `<div style="font-size:10px;color:#94a3b8;margin-top:1px">${[a.contact_name,a.contact_email].filter(Boolean).join(' · ')}</div>` : ''}
+              </div>
+              ${a.funnel ? `<span class="funnel-badge" style="font-size:9px">${a.funnel}</span>` : ''}
+            </div>`;
+          }).join('')}
         </div>`;
-      }).join('')}
-    `).join('');
+      }).join('');
+
+      const gId = 'tg-' + gName.replace(/\s/g,'');
+      return `<div class="toggle-group">
+        <div class="toggle-group-header" onclick="toggleGroup('${gId}')">
+          <div class="toggle-group-title">
+            <span>${groupIcons[gName]}</span> ${gName}
+            <span class="toggle-group-count">${accs.length}개</span>
+          </div>
+          <span class="toggle-group-arrow open" id="${gId}-arrow">▶</span>
+        </div>
+        <div class="toggle-group-body open" id="${gId}">${subHtml}</div>
+      </div>`;
+    }).join('');
   } else {
     if (type === 'all') filtered = allTasks;
     else if (type === 'done') filtered = allTasks.filter(t => (t.kanban_status||'planned') === 'done');
@@ -1016,6 +1081,14 @@ async function openStatDetail(type) {
 }
 
 // ── Detail panel ─────────────────────────────────────────────────────────────
+function toggleGroup(id) {
+  const body = document.getElementById(id);
+  const arrow = document.getElementById(id + '-arrow');
+  if (!body) return;
+  body.classList.toggle('open');
+  arrow.classList.toggle('open');
+}
+
 function openDetail() {
   document.getElementById('detail-overlay').classList.add('open');
   document.getElementById('detail-panel').classList.add('open');
