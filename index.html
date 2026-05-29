@@ -1145,32 +1145,74 @@ async function openTaskDetail(tid) {
     <span style="font-size:11px;color:#94a3b8">${t.description || ''}</span>
   `;
 
-  // group accounts by track
-  const tracks = {};
+  const gradeOrder = g => {
+    if (!g) return 9;
+    const gs = g.trim();
+    if (gs.includes('네임드')) return 0;
+    if (gs.toUpperCase() === 'S') return 1;
+    if (gs.toUpperCase() === 'A' || gs.includes('(A)')) return 2;
+    if (gs.toUpperCase() === 'B') return 3;
+    return 8;
+  };
+
+  const topGroups = { 'AI 캠퍼스': [], '고성과': [], '기타': [] };
   accounts.forEach(a => {
-    const tr = a.track_name || '기타';
-    if (!tracks[tr]) tracks[tr] = [];
-    tracks[tr].push(a);
+    const tr = (a.track_name || '').toLowerCase();
+    if (tr.includes('ai campus') || tr.includes('ai 캠퍼스')) topGroups['AI 캠퍼스'].push(a);
+    else if (tr.includes('고성과')) topGroups['고성과'].push(a);
+    else topGroups['기타'].push(a);
   });
 
-  let rows = '';
-  Object.entries(tracks).forEach(([tr, accs]) => {
-    rows += `<div class="detail-track-header">${tr}</div>`;
-    accs.forEach(a => {
-      const cell = matrixData.cell_map[`${a.id}_${t.id}`] || {};
-      const st = cell.status || 'not_started';
-      const atId = cell.id || '';
-      const badge = a.grade ? `<span class="grade-${a.grade.toLowerCase()}" style="font-size:9px">${a.grade}</span> ` : '';
-      rows += `<div class="detail-company-row">
-        <div>
-          <div class="detail-company-name">${badge}${a.name}</div>
+  const groupIcons2 = { 'AI 캠퍼스': '🤖', '고성과': '⭐', '기타': '📁' };
+  let num = 0;
+  let rows = Object.entries(topGroups).filter(([,accs]) => accs.length > 0).map(([gName, gAccs]) => {
+    const tracks = {};
+    gAccs.forEach(a => { const tr = a.track_name||'기타'; if(!tracks[tr]) tracks[tr]=[]; tracks[tr].push(a); });
+    Object.values(tracks).forEach(list => list.sort((a,b) => gradeOrder(a.grade) - gradeOrder(b.grade)));
+    const gId = `td-${t.id}-${gName.replace(/\s/g,'')}`;
+
+    const subHtml = Object.entries(tracks).map(([tr, taccs], ti) => {
+      const trackShort = tr.replace(/^\(.*?\)\s*/, '').replace(/과정$/, '').trim();
+      const tId = `${gId}-t${ti}`;
+      const compRows = taccs.map(a => {
+        const cell = matrixData.cell_map[`${a.id}_${t.id}`] || {};
+        const st = cell.status || 'not_started';
+        num++;
+        return `<div class="detail-company-row">
+          <span class="company-num">${num}</span>
+          <div style="flex:1;min-width:0">
+            <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">
+              ${gradeBadge(a.grade,'9px')}
+              <span class="detail-company-name">${a.name}</span>
+            </div>
+            ${a.contact_name ? `<div style="font-size:10px;color:#94a3b8;margin-top:1px">${a.contact_name}</div>` : ''}
+          </div>
+          <button class="detail-status-btn dsb-${st}" onclick="cycleDetailStatus(${a.id},${t.id},'${st}',this)">${STATUS_LABEL[st]}</button>
+        </div>`;
+      }).join('');
+      return `<div style="margin-bottom:4px;border:1px solid #f1f5f9;border-radius:8px;overflow:hidden">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 10px;background:#f8fafc;cursor:pointer" onclick="toggleGroup('${tId}')">
+          <span style="font-size:11px;font-weight:700;color:#475569">${trackShort}</span>
+          <div style="display:flex;align-items:center;gap:6px">
+            <span style="font-size:10px;color:#94a3b8">${taccs.length}개</span>
+            <span class="toggle-group-arrow open" id="${tId}-arrow" style="font-size:10px">▶</span>
+          </div>
         </div>
-        <button class="detail-status-btn dsb-${st}"
-          onclick="cycleDetailStatus(${a.id},${t.id},'${st}',this)"
-          data-at="${atId}">${STATUS_LABEL[st]}</button>
+        <div class="toggle-group-body open" id="${tId}" style="padding:4px 6px">${compRows}</div>
       </div>`;
-    });
-  });
+    }).join('');
+
+    return `<div class="toggle-group" style="margin-bottom:10px">
+      <div class="toggle-group-header" onclick="toggleGroup('${gId}')">
+        <div class="toggle-group-title">
+          <span>${groupIcons2[gName]}</span> ${gName}
+          <span class="toggle-group-count">${gAccs.length}개 · ${Object.keys(tracks).length}개 트랙</span>
+        </div>
+        <span class="toggle-group-arrow open" id="${gId}-arrow">▶</span>
+      </div>
+      <div class="toggle-group-body open" id="${gId}" style="padding:8px">${subHtml}</div>
+    </div>`;
+  }).join('');
 
   document.getElementById('detail-body').innerHTML = `
     <div class="detail-section">
